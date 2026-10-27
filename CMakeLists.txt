@@ -10,6 +10,8 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 # slimecrack: `seed` recovers the world seed, `salt` recovers the scrambler (spigot.yml seed-slime)
+# -march=native is fastest locally but makes binaries that crash on other CPUs; CI turns it off.
+option(SLIMECRACK_NATIVE "Tune for this machine's CPU" ON)
 find_package(OpenMP)
 add_executable(slimecrack
     src/slimecrack.c src/slime.c src/chunks.c src/crack.c src/render.c)
@@ -19,5 +21,8 @@ endif()
 if(MSVC)
     target_compile_options(slimecrack PRIVATE /O2)
 else()
-    target_compile_options(slimecrack PRIVATE -O3 -march=native)
+    target_compile_options(slimecrack PRIVATE -O3)
+    if(SLIMECRACK_NATIVE)
+        target_compile_options(slimecrack PRIVATE -march=native)
+    endif()
 endif()
