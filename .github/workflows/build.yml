@@ -33,12 +33,17 @@ jobs:
       - name: Build
         run: cmake --build build
 
-      - name: Smoke test (prints usage, exits 1)
+      - name: Smoke test
         shell: bash
         run: |
-          ./build/${{ matrix.exe }} 2>&1 | head -3
+          # no arguments prints the usage and exits 1, which is expected
+          out=$(./build/${{ matrix.exe }} 2>&1 || true)
+          echo "$out"
+          echo "$out" | grep -q "^usage"
+          # a real run: exit code 0 (match) or 2 (mismatch) are both fine, a crash is not
           printf 'x,z\n0,0\n' > t.csv
-          ./build/${{ matrix.exe }} check 0 t.csv || true
+          rc=0; ./build/${{ matrix.exe }} check 0 t.csv || rc=$?
+          [ "$rc" -le 2 ]
 
       - name: Package
         shell: bash
