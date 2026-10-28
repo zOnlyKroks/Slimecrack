@@ -16,19 +16,32 @@ jobs:
           - os: ubuntu-latest
             name: slimecrack-linux-x64
             exe: slimecrack
+            gui: slimefinder
+            flags: ""
+          - os: macos-latest
+            name: slimecrack-macos-arm64
+            exe: slimecrack
+            gui: slimefinder
             flags: ""
           - os: windows-latest
             name: slimecrack-windows-x64
             exe: slimecrack.exe
+            gui: slimefinder.exe
             # MinGW gcc, linked statically so the .exe needs no libgomp / winpthread DLLs next to it
             flags: -G Ninja -DCMAKE_C_COMPILER=gcc -DCMAKE_EXE_LINKER_FLAGS=-static
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install GUI dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl1-mesa-dev libxkbcommon-dev libwayland-dev wayland-protocols
+
       - name: Configure
         shell: bash
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DSLIMECRACK_NATIVE=OFF ${{ matrix.flags }}
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DSLIMECRACK_NATIVE=OFF -DSLIMECRACK_GUI=ON -DSLIMECRACK_FETCH_RAYLIB=ON ${{ matrix.flags }}
 
       - name: Build
         run: cmake --build build
@@ -49,8 +62,9 @@ jobs:
         shell: bash
         run: |
           mkdir dist
-          cp build/${{ matrix.exe }} dist/
-          cd dist && sha256sum ${{ matrix.exe }} > ${{ matrix.exe }}.sha256
+          cp build/${{ matrix.exe }} build/${{ matrix.gui }} dist/
+          cd dist
+          for f in ${{ matrix.exe }} ${{ matrix.gui }}; do (sha256sum $f || shasum -a 256 $f) > $f.sha256; done
 
       - uses: actions/upload-artifact@v4
         with:
