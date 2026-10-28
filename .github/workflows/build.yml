@@ -16,17 +16,14 @@ jobs:
           - os: ubuntu-latest
             name: slimecrack-linux-x64
             exe: slimecrack
-            gui: slimefinder
             flags: ""
           - os: macos-latest
             name: slimecrack-macos-arm64
             exe: slimecrack
-            gui: slimefinder
             flags: ""
           - os: windows-latest
             name: slimecrack-windows-x64
             exe: slimecrack.exe
-            gui: slimefinder.exe
             # MinGW gcc, linked statically so the .exe needs no libgomp / winpthread DLLs next to it
             flags: -G Ninja -DCMAKE_C_COMPILER=gcc -DCMAKE_EXE_LINKER_FLAGS=-static
     runs-on: ${{ matrix.os }}
@@ -62,13 +59,13 @@ jobs:
         shell: bash
         run: |
           mkdir dist stage
-          cp build/${{ matrix.exe }} build/${{ matrix.gui }} stage/
+          cp build/${{ matrix.exe }} stage/
           if [ "$RUNNER_OS" = "Windows" ]; then
             archive=${{ matrix.name }}.zip
-            (cd stage && 7z a ../dist/$archive ${{ matrix.exe }} ${{ matrix.gui }} > /dev/null)
+            (cd stage && 7z a ../dist/$archive ${{ matrix.exe }} > /dev/null)
           else
             archive=${{ matrix.name }}.tar.gz
-            tar -czf dist/$archive -C stage ${{ matrix.exe }} ${{ matrix.gui }}
+            tar -czf dist/$archive -C stage ${{ matrix.exe }}
           fi
           cd dist && (sha256sum $archive || shasum -a 256 $archive) > $archive.sha256
 

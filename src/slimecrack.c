@@ -5,6 +5,9 @@
 #include "crack.h"
 #include "render.h"
 #include "slime.h"
+#ifdef SLIMECRACK_HAS_GUI
+#include "gui.h"
+#endif
 
 /* Reports whether seed reproduces the file (listed = slime, unlisted in the bounding box = not slime). */
 static int check_seed(const Ctx *ctx, const Chunks *ch, const uint64_t seed) {
@@ -29,6 +32,14 @@ int main(const int argc, char **argv) {
     if (argc < 2) return render_usage(argv[0]);
 
     const char *cmd = argv[1];
+    if (strcmp(cmd, "gui") == 0) {
+#ifdef SLIMECRACK_HAS_GUI
+        return gui_main();
+#else
+        fprintf(stderr, "this build has no GUI (configure with -DSLIMECRACK_GUI=ON)\n");
+        return 1;
+#endif
+    }
     const int is_check = strcmp(cmd, "check") == 0;
     Ctx ctx = { .mode = MODE_SEED, .K = 0, .worldSeed = 0 };
     if (strcmp(cmd, "salt") == 0) ctx.mode = MODE_SALT;

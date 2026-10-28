@@ -2,8 +2,13 @@
 #include <stdlib.h>
 #include "render.h"
 
+static void (*progress_sink)(int);
+
+void render_set_progress_sink(void (*sink)(int)) { progress_sink = sink; }
+
 /* Draws the stderr progress bar for pct percent. */
 void render_progress(const int pct) {
+    if (progress_sink) { progress_sink(pct); return; }
     const int filled = pct * 30 / 100;
     fprintf(stderr, "\r[%.*s%.*s] %3d%%", filled, "##############################",
             30 - filled, "------------------------------", pct);
@@ -12,6 +17,7 @@ void render_progress(const int pct) {
 
 /* Ends the progress bar line. */
 void render_progress_done(void) {
+    if (progress_sink) return;
     fprintf(stderr, "\n");
 }
 
@@ -89,8 +95,9 @@ int render_usage(const char *prog) {
             "usage (--scrambler defaults to 987234911):\n"
             "  %s seed  chunks.csv [--scrambler N] [--anchor N]   recover the world seed\n"
             "  %s salt  WORLDSEED chunks.csv [--anchor N]         recover the scrambler (spigot.yml seed-slime)\n"
-            "  %s check SEED chunks.csv [--scrambler N]           does SEED reproduce the file?\n",
-            prog, prog, prog);
+            "  %s check SEED chunks.csv [--scrambler N]           does SEED reproduce the file?\n"
+            "  %s gui                                             open the slime chunk map\n",
+            prog, prog, prog, prog);
     return 1;
 }
 

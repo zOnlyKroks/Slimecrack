@@ -8,6 +8,9 @@
 /* Draws the stderr progress bar for pct percent. */
 void render_progress(int pct);
 
+/* Redirects progress reports to sink instead of the stderr bar (the GUI reads the percentage itself). */
+void render_set_progress_sink(void (*sink)(int pct));
+
 /* Ends the progress bar line. */
 void render_progress_done(void);
 

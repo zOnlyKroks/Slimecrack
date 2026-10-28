@@ -49,9 +49,7 @@ static Font g_font;
 static Field *g_focus;
 static _Atomic int g_pct;
 
-/* crack.c reports through these; the GUI reads the percentage instead of drawing a bar on stderr. */
-void render_progress(const int pct) { g_pct = pct; }
-void render_progress_done(void) {}
+static void set_progress(const int pct) { g_pct = pct; }
 
 static void text(const char *s, const float x, const float y, const float size, const Color c) {
     DrawTextEx(g_font, s, (Vector2){ x, y }, size, 0, c);
@@ -318,7 +316,8 @@ static void rebuild(Texture2D *tex, Image *img, const Ctx *ctx, const uint64_t s
     UpdateTexture(*tex, img->data);
 }
 
-int main(void) {
+int gui_main(void) {
+    render_set_progress_sink(set_progress);
     SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT);
     InitWindow(1000, 700, "SlimeFinder");
     SetWindowMinSize(760, 520);
