@@ -61,10 +61,16 @@ jobs:
       - name: Package
         shell: bash
         run: |
-          mkdir dist
-          cp build/${{ matrix.exe }} build/${{ matrix.gui }} dist/
-          cd dist
-          for f in ${{ matrix.exe }} ${{ matrix.gui }}; do (sha256sum $f || shasum -a 256 $f) > $f.sha256; done
+          mkdir dist stage
+          cp build/${{ matrix.exe }} build/${{ matrix.gui }} stage/
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            archive=${{ matrix.name }}.zip
+            (cd stage && 7z a ../dist/$archive ${{ matrix.exe }} ${{ matrix.gui }} > /dev/null)
+          else
+            archive=${{ matrix.name }}.tar.gz
+            tar -czf dist/$archive -C stage ${{ matrix.exe }} ${{ matrix.gui }}
+          fi
+          cd dist && (sha256sum $archive || shasum -a 256 $archive) > $archive.sha256
 
       - uses: actions/upload-artifact@v4
         with:
