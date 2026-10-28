@@ -9,8 +9,9 @@
 #define DEFAULT_SCRAMBLER 987234911ULL
 
 /* The first LCG state of chunk (x,z) is (worldSeed + offs(x,z)) ^ K, with K = scrambler ^ MUL.
-   MODE_SEED: scrambler known, world seed unknown.  MODE_SALT: world seed known, scrambler unknown. */
-typedef enum { MODE_SEED, MODE_SALT } Mode;
+   MODE_SEED: scrambler known, world seed unknown.  MODE_SALT: world seed known, scrambler unknown.
+   MODE_BOTH: both unknown. */
+typedef enum { MODE_SEED, MODE_SALT, MODE_BOTH } Mode;
 
 typedef struct {
     Mode mode;

@@ -9,7 +9,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 option(SLIMECRACK_NATIVE "Tune for this machine's CPU" ON)
 find_package(OpenMP)
 add_executable(slimecrack
-    src/slimecrack.c src/slime.c src/chunks.c src/crack.c src/render.c)
+    src/slimecrack.c src/slime.c src/chunks.c src/crack.c src/both.c src/render.c)
 if(OpenMP_C_FOUND)
     target_link_libraries(slimecrack PRIVATE OpenMP::OpenMP_C)
 endif()

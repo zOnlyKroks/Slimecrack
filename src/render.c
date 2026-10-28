@@ -1,3 +1,4 @@
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "render.h"
@@ -68,8 +69,29 @@ static const char *default_note(const Ctx *ctx, const uint64_t v) {
     return ctx->mode == MODE_SALT && v == DEFAULT_SCRAMBLER ? "  = default 987234911" : "";
 }
 
+/* Prints seed/scrambler pairs found by both mode (each is also valid with bit 47 of both flipped). */
+static void report_both(const Results *res) {
+    if (res->n == 0) { printf("no solutions\n"); return; }
+    printf(res->n == 1 ? "definitive (low 48 bits):\n" : "%d candidates (low 48 bits):\n", res->n);
+    for (int k = 0; k < res->n && k < 20; k++)
+        printf("  seed %llu (0x%012llx)  scrambler %llu (0x%012llx)%s\n", (unsigned long long)res->v[k],
+               (unsigned long long)res->v[k], (unsigned long long)res->w2[k], (unsigned long long)res->w2[k],
+               res->w2[k] == DEFAULT_SCRAMBLER ? "  = default 987234911" : "");
+    if (res->n > 20) printf("  ... and %d more\n", res->n - 20);
+    printf("flipping bit 47 of both seed and scrambler gives the identical slime map\n");
+}
+
+/* Prints a status line to stderr. */
+void render_message(const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    vfprintf(stderr, fmt, ap);
+    va_end(ap);
+}
+
 /* Sorts and prints the results; in seed mode with several candidates also suggests chunks to observe next. */
 void render_report(const Ctx *ctx, const Chunks *ch, Results *res) {
+    if (ctx->mode == MODE_BOTH) { report_both(res); return; }
     const char *what = ctx->mode == MODE_SEED ? "seed (low 48 bits)" : "scrambler (low 48 bits)";
     if (res->n == 0) { printf("no solutions\n"); return; }
     qsort(res->v, (size_t)res->n, sizeof res->v[0], cmp_u64);
@@ -95,9 +117,10 @@ int render_usage(const char *prog) {
             "usage (--scrambler defaults to 987234911):\n"
             "  %s seed  chunks.csv [--scrambler N] [--anchor N]   recover the world seed\n"
             "  %s salt  WORLDSEED chunks.csv [--anchor N]         recover the scrambler (spigot.yml seed-slime)\n"
+            "  %s both  chunks.csv                                recover seed and scrambler (needs a dense block)\n"
             "  %s check SEED chunks.csv [--scrambler N]           does SEED reproduce the file?\n"
             "  %s gui                                             open the slime chunk map\n",
-            prog, prog, prog, prog);
+            prog, prog, prog, prog, prog);
     return 1;
 }
 

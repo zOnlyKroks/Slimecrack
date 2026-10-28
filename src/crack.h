@@ -6,7 +6,8 @@
 #include "slime.h"
 
 typedef struct {
-    uint64_t *v;    /* seeds (seed mode) or scramblers (salt mode), low 48 bits */
+    uint64_t *v;    /* seeds (seed/both mode) or scramblers (salt mode), low 48 bits */
+    uint64_t *w2;   /* scramblers belonging to v (both mode only, else NULL) */
     int n;
 } Results;
 

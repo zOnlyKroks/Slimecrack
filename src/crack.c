@@ -21,6 +21,7 @@ static int check_all(const Ctx *ctx, const Chunks *ch, const uint64_t S) {
 int crack(const Ctx *ctx, const Chunks *ch, const int anchor_nth, Results *out) {
     const uint64_t MINV = inv48(MUL);
     out->v = malloc(sizeof(uint64_t) * MAX_FOUND);
+    out->w2 = NULL;
     out->n = 0;
 
     int anchor = -1, ns = 0, seen = 0;

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "both.h"
 #include "chunks.h"
 #include "crack.h"
 #include "render.h"
@@ -27,7 +28,7 @@ static int check_seed(const Ctx *ctx, const Chunks *ch, const uint64_t seed) {
     return bad ? 2 : 0;
 }
 
-/* Parses the command line, loads the chunk file and runs seed / salt / check. */
+/* Parses the command line, loads the chunk file and runs seed / salt / both / check. */
 int main(const int argc, char **argv) {
     if (argc < 2) return render_usage(argv[0]);
 
@@ -43,6 +44,7 @@ int main(const int argc, char **argv) {
     const int is_check = strcmp(cmd, "check") == 0;
     Ctx ctx = { .mode = MODE_SEED, .K = 0, .worldSeed = 0 };
     if (strcmp(cmd, "salt") == 0) ctx.mode = MODE_SALT;
+    else if (strcmp(cmd, "both") == 0) ctx.mode = MODE_BOTH;
     else if (strcmp(cmd, "seed") != 0 && !is_check) return render_usage(argv[0]);
 
     const int need = ctx.mode == MODE_SALT || is_check ? 2 : 1;   /* positionals: [WORLDSEED|SEED] chunks.csv */
@@ -70,9 +72,10 @@ int main(const int argc, char **argv) {
         } else {
             Results res;
             chunks_fill_non_slime(ch);
-            rc = crack(&ctx, ch, anchor, &res) > 0 ? 0 : 2;
+            rc = (ctx.mode == MODE_BOTH ? crack_both(ch, &res) : crack(&ctx, ch, anchor, &res)) > 0 ? 0 : 2;
             render_report(&ctx, ch, &res);
             free(res.v);
+            free(res.w2);
         }
     }
     chunks_free(ch);
