@@ -20,6 +20,18 @@ void render_progress_done(void);
 /* Sorts and prints the results; in seed mode with several candidates also suggests chunks to observe next. */
 void render_report(const Ctx *ctx, const Chunks *ch, Results *res);
 
+#define SUGGEST_MAX 16     /* most chunks suggested */
+#define SUGGEST_RADIUS 64  /* chunks searched around the centre of the data */
+#define SUGGEST_CAND 64    /* candidates considered (the first ones of the result list) */
+
+/* A chunk to observe next; bit k of slime is set if candidate k (result list order) makes it a slime chunk. */
+typedef struct { int64_t x, z; uint64_t slime; } Suggestion;
+
+/* Greedily picks up to max chunks around the data that together tell the candidates apart, each pick separating
+   as many still-confusable candidate pairs as possible. Returns the number of picks; *left is the number of
+   candidates that stay indistinguishable. */
+int suggest_chunks(const Ctx *ctx, const Chunks *ch, const Results *res, Suggestion *out, int max, int *left);
+
 /* Prints the command-line help. */
 int render_usage(const char *prog);
 

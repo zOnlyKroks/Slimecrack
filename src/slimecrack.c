@@ -24,7 +24,17 @@ static int check_seed(const Ctx *ctx, const Chunks *ch, const uint64_t seed) {
             bad++;
         }
     free(listed);
-    render_check_summary(seed, bad, w * h);
+    long long nfixed = 0;
+    for (int k = 0; k < ch->n; k++) {
+        const Obs *o = &ch->v[k];
+        if (!o->fixed) continue;
+        nfixed++;
+        const int s = is_slime(ctx, seed, o->c);
+        if (s == o->slime) continue;
+        if (shown++ < 5) render_check_mismatch(o->x, o->z, s);
+        bad++;
+    }
+    render_check_summary(seed, bad, w * h + nfixed);
     return bad ? 2 : 0;
 }
 

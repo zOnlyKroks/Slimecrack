@@ -40,8 +40,10 @@ typedef struct {
     Field scr, world;
     char file[128];
     Ctx ctx;
-    int show_list;
+    int show_list, show_sug;
     float list_scroll;
+    Suggestion sug[SUGGEST_MAX];
+    int nsug, sug_left;
     char note[160];
     Results res;
     int matches;
@@ -236,13 +238,15 @@ static void *worker(void *arg) {
         c->matches = crack(&c->ctx, c->work, 0, &c->res);
         if (c->res.n > 0) qsort(c->res.v, (size_t)c->res.n, sizeof c->res.v[0], cmp_u64);
     }
+    if (c->res.n > 1) c->nsug = suggest_chunks(&c->ctx, c->ch, &c->res, c->sug, SUGGEST_MAX, &c->sug_left);
     atomic_store(&c->running, 0);
     return NULL;
 }
 
 static void crack_start(Crack *c) {
     c->note[0] = 0;
-    c->show_list = 0;
+    c->show_list = c->show_sug = 0;
+    c->nsug = c->sug_left = 0;
     free(c->res.v);
     free(c->res.w2);
     c->res = (Results){ 0 };
@@ -357,12 +361,58 @@ static int list_view(Crack *c, const int W) {
     return open;
 }
 
+/* Full-window list of the chunks to observe next, each with the candidates it separates. */
+static void sug_view(Crack *c, const int W) {
+    const int H = logical_h(), rowh = 30, top = 120;
+    const float x = 24;
+    const int ncand = c->res.n < SUGGEST_CAND ? c->res.n : SUGGEST_CAND;
+    char s[256];
+
+    snprintf(s, sizeof s, "%d chunks tell the %d candidates apart", c->nsug, ncand - c->sug_left);
+    text(s, x, 74, 14, FG);
+    text("check these chunks (slime or not) and add them to the csv as x,z,1 or x,z,0", x, 94, 13, DIM);
+    if (button((Rectangle){ (float)W - 120, 62, 96, 28 }, "close", 1, 0)) c->show_sug = 0;
+
+    const float visible = (float)(H - top - 10);
+    const float total = (float)((c->nsug + (c->sug_left > 0)) * rowh);
+    c->list_scroll -= GetMouseWheelMove() * rowh * 3;
+    if (c->list_scroll > total - visible) c->list_scroll = total - visible;
+    if (c->list_scroll < 0) c->list_scroll = 0;
+
+    scissor_begin(0, top, W, (int)visible);
+    for (int p = 0; p < c->nsug; p++) {
+        const float y = (float)top + (float)(p * rowh) - c->list_scroll;
+        if (y < (float)top - rowh || y > (float)H) continue;
+        snprintf(s, sizeof s, "%d", p + 1);
+        text(s, x, y + 6, 13, DIM);
+        snprintf(s, sizeof s, "%lld, %lld", (long long)c->sug[p].x, (long long)c->sug[p].z);
+        text(s, x + 40, y + 5, 16, FG);
+
+        int slime = 0;
+        for (int k = 0; k < ncand; k++) slime += (int)((c->sug[p].slime >> k) & 1);
+        const int want = slime * 2 <= ncand;   /* list the smaller side of the split */
+        int len = snprintf(s, sizeof s, want ? "slime for #" : "not slime for #");
+        for (int k = 0, first = 1; k < ncand && len < (int)sizeof s - 8; k++)
+            if ((int)((c->sug[p].slime >> k) & 1) == want) {
+                len += snprintf(s + len, sizeof s - (size_t)len, first ? "%d" : ",%d", k + 1);
+                first = 0;
+            }
+        text(s, x + 220, y + 6, 14, DIM);
+    }
+    if (c->sug_left > 0) {
+        snprintf(s, sizeof s, "%d candidates stay indistinguishable within %d chunks of the data", c->sug_left, SUGGEST_RADIUS);
+        text(s, x, (float)top + (float)(c->nsug * rowh) - c->list_scroll + 6, 13, DIM);
+    }
+    EndScissorMode();
+}
+
 /* Returns the index of the result whose "map" button was clicked, or -1. */
 static int crack_tab(Crack *c, const int W) {
     const float x = 24;
     int open = -1;
     const int running = c->state == RUNNING;
     if (c->show_list) return list_view(c, W);
+    if (c->show_sug) { sug_view(c, W); return -1; }
 
     if (button((Rectangle){ x, 64, 92, 28 }, "seed", !running, c->mode == MODE_SEED)) c->mode = MODE_SEED;
     if (button((Rectangle){ x + 96, 64, 92, 28 }, "scrambler", !running, c->mode == MODE_SALT)) c->mode = MODE_SALT;
@@ -390,6 +440,7 @@ static int crack_tab(Crack *c, const int W) {
     if (button((Rectangle){ x, 216, 92, 32 }, running ? "running" : "start", !running && c->nslime > 0, 0)) crack_start(c);
     const int has = c->state == DONE && c->res.n > 0;
     if (button((Rectangle){ x + 96, 216, 92, 32 }, "list", has, 0)) { c->show_list = 1; c->list_scroll = 0; }
+    if (button((Rectangle){ x + 288, 216, 92, 32 }, "next chunks", c->state == DONE && c->nsug > 0, 0)) { c->show_sug = 1; c->list_scroll = 0; }
     if (button((Rectangle){ x + 192, 216, 92, 32 }, "export", has, 0)) {
         char path[1024];
         if (save_file(path, sizeof path))

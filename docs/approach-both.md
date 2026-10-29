@@ -42,7 +42,9 @@ Da `i_a` durch 10 teilbar ist und `2^31 mod 10 = 8`, gilt `i_b % 10 == 0` genau 
 
 Ist `vb` außerhalb von `[0, 2^k)` (Übertrag), lässt sich der Test mit `k` Bit noch nicht entscheiden und gilt als bestanden. Bei `k = 48` gibt es keinen Übertrag mehr, der Test ist dort exakt.
 
-Das Programm wählt die bis zu 256 Paare mit dem kleinsten `|ds|` unter den ersten 1500 Slime-Chunks. Ein Paar wird ab `k = bitlen(|ds|) + 1` (mindestens 18) eingesetzt.
+**Paarauswahl.** Der Aufwand ist etwa `4^(kmin - 18)`, wobei `kmin` vom engsten Paar bestimmt wird. Jedes Bit weniger bei `kmin` spart also den Faktor 4. Deshalb werden die Paare aus **allen** Slime-Chunks gewählt, nicht aus einem Ausschnitt in Dateireihenfolge: Die Offsets `c` (mod `2^48`) werden sortiert, und jeder Chunk wird nur mit seinen nächsten 8 Nachbarn in dieser (zyklischen) Reihenfolge gepaart. Das engste Paar einer Menge ist immer ein Nachbarpaar, der Aufwand ist `O(n log n)` statt `O(n^2)`. Paare mit `ds = 0` (gleicher Offset) werden verworfen, sie prüfen nichts. Das Programm nimmt die bis zu 256 Paare mit dem kleinsten `|ds|`.
+
+**Früher einsetzen.** Der Paar-Test ist exakt, sobald `vb = va + ds` in `[0, 2^k)` liegt. Das hängt nicht von `|ds| < 2^(k-1)` ab. Ein Paar wird deshalb schon ab `k = bitlen(|ds|)` (mindestens 18) eingesetzt: Dort entfällt der Übertrag für den Teil der Kandidaten mit `va + ds` im Bereich (Wahrscheinlichkeit `1 - |ds| / 2^k`), und diese werden mit Faktor `1/5` gefiltert. Alle anderen gelten wie bisher als bestanden.
 
 ## Stufe 3: Suche
 

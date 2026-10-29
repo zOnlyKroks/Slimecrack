@@ -4,7 +4,7 @@
 #include "render.h"
 
 #define LEVEL0 18                    /* bits known after the bit-17 stage */
-#define POOL 1500                    /* slime chunks considered when looking for close pairs */
+#define WINDOW 8                     /* neighbours in sorted offset order paired with each slime chunk */
 #define MAX_PAIRS 256
 #define FRONTIER_LIMIT (1u << 20)    /* stop the breadth-first lifting once this many candidates are alive */
 #define SURVIVOR_LIMIT (1u << 24)
@@ -33,26 +33,34 @@ static int cmp_pair(const void *a, const void *b) {
     return x < y ? -1 : x > y;
 }
 
-/* Picks the slime-chunk pairs with the smallest offset difference; returns the list of slime offsets mod 2^18. */
+static int cmp_u64(const void *a, const void *b) {
+    const uint64_t x = *(const uint64_t *)a, y = *(const uint64_t *)b;
+    return x < y ? -1 : x > y;
+}
+
+/* Picks the slime-chunk pairs with the smallest offset difference; returns the list of slime offsets mod 2^18.
+   The closest pair of a set is always adjacent in sorted order, so only neighbours (cyclic mod 2^48) are paired. */
 static uint32_t *build_pairs(const Chunks *ch, int *ns_out) {
-    int ns = 0, pool = 0;
+    int ns = 0;
     uint32_t *c18 = malloc(sizeof(uint32_t) * (size_t)ch->n);
-    uint64_t *poolc = malloc(sizeof(uint64_t) * POOL);
+    uint64_t *sorted = malloc(sizeof(uint64_t) * (size_t)ch->n);
     for (int k = 0; k < ch->n; k++) if (ch->v[k].slime) {
-        c18[ns++] = (uint32_t)(ch->v[k].c & ((1u << LEVEL0) - 1));
-        if (pool < POOL) poolc[pool++] = ch->v[k].c;
+        c18[ns] = (uint32_t)(ch->v[k].c & ((1u << LEVEL0) - 1));
+        sorted[ns++] = ch->v[k].c & MASK48;
     }
     *ns_out = ns;
+    qsort(sorted, (size_t)ns, sizeof(uint64_t), cmp_u64);
 
-    Pair *all = malloc(sizeof(Pair) * ((size_t)pool * (pool - 1) / 2 + 1));
+    Pair *all = malloc(sizeof(Pair) * ((size_t)ns * WINDOW + 1));
     size_t na = 0;
-    for (int i = 0; i < pool; i++)
-        for (int j = i + 1; j < pool; j++) {
-            const uint64_t diff = (poolc[j] - poolc[i]) & MASK48;
+    for (int i = 0; i < ns; i++)
+        for (int w = 1; w <= WINDOW && w < ns; w++) {
+            const uint64_t diff = (sorted[(i + w) % ns] - sorted[i]) & MASK48;
+            if (diff == 0) continue;
             const int64_t ds = diff >= (1ULL << 47) ? (int64_t)diff - (int64_t)(1ULL << 48) : (int64_t)diff;
             Pair *p = &all[na++];
-            p->ca = poolc[i]; p->ds = ds; p->absds = ds < 0 ? (uint64_t)-ds : (uint64_t)ds;
-            p->kmin = bitlen(p->absds) + 1;
+            p->ca = sorted[i]; p->ds = ds; p->absds = ds < 0 ? (uint64_t)-ds : (uint64_t)ds;
+            p->kmin = bitlen(p->absds);
             if (p->kmin < LEVEL0) p->kmin = LEVEL0;
         }
     qsort(all, na, sizeof(Pair), cmp_pair);
@@ -61,7 +69,7 @@ static uint32_t *build_pairs(const Chunks *ch, int *ns_out) {
         npairs_upto[L] = 0;
         while (npairs_upto[L] < npairs && pairs[npairs_upto[L]].kmin <= L) npairs_upto[L]++;
     }
-    free(all); free(poolc);
+    free(all); free(sorted);
     return c18;
 }
 
