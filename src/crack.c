@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "crack.h"
+#include "lift.h"
 #include "render.h"
 
 #define LO_BITS 17
@@ -8,6 +9,7 @@
 #define MAX_FOUND (1 << 22)
 #define T_COUNT 214748364LL      /* i = 10t <= 2147483630, i.e. all valid (non-rejected) multiples of 10 */
 #define BLOCK   4096LL
+#define BATCH   4
 
 /* True if every observation agrees with the anchor's first state S. */
 static int check_all(const Ctx *ctx, const Chunks *ch, const uint64_t S) {
@@ -16,9 +18,18 @@ static int check_all(const Ctx *ctx, const Chunks *ch, const uint64_t S) {
     return 1;
 }
 
+/* i of the second LCG output of the chunk whose first state is derived from the anchor's state S and offset d. */
+static uint32_t second_i(const int seed_mode, const uint64_t K, const uint64_t S, const uint64_t d) {
+    const uint64_t s = seed_mode ? (((S ^ K) + d) & MASK48) ^ K : S ^ d;
+    return (uint32_t)(((s * MUL + ADDC) & MASK48) >> 17);
+}
+
 /* Searches all first states of the anchor_nth slime chunk and collects every seed/scrambler consistent with
    all chunks. Returns the number of matches (results are unsorted). */
 int crack(const Ctx *ctx, const Chunks *ch, const int anchor_nth, Results *out) {
+    const int lifted = crack_lift(ctx, ch, out);
+    if (lifted >= 0) return lifted;
+
     const uint64_t MINV = inv48(MUL);
     out->v = malloc(sizeof(uint64_t) * MAX_FOUND);
     out->w2 = NULL;
@@ -59,37 +70,51 @@ int crack(const Ctx *ctx, const Chunks *ch, const int anchor_nth, Results *out) 
 
     const uint64_t STEP = ((10ULL << LO_BITS) * MINV) & MASK48;   /* anchor-state delta per t */
     const long long nblocks = (T_COUNT + BLOCK - 1) / BLOCK;
+    const int seed_mode = ctx->mode == MODE_SEED;
+    const uint64_t K = ctx->K;
     int matches = 0;
     long long done = 0;
     int lastpct = -1;
 
-    #pragma omp parallel for schedule(dynamic, 1)
+    #pragma default(shared) omp parallel for schedule(dynamic, 1)
     for (long long blk = 0; blk < nblocks; blk++) {
         const long long t0 = blk * BLOCK;
         long long t1 = t0 + BLOCK;
         if (t1 > T_COUNT) t1 = T_COUNT;
         uint64_t tb = (((uint64_t)(10 * t0) << LO_BITS) - ADDC) * MINV & MASK48;
         for (long long t = t0; t < t1; t++) {
+            /* BATCH independent first checks per step keep several multiplies in flight */
+            const int batch = t + BATCH <= t1 && nf > 0;
+            const int steps = batch ? BATCH : 1;
             for (int k = 0; k < nlo; k++) {
-                const uint64_t S = (tb + loTerm[k]) & MASK48;     /* first state of the anchor chunk */
-                int ok = 1;
-                for (int b = 0; b < nf; b++) {
-                    const uint32_t i = (uint32_t)(((derive(ctx, S, delta[b]) * MUL + ADDC) & MASK48) >> 17);
-                    if (!pass_div10(i)) { ok = 0; break; }
+                uint64_t S[BATCH];
+                unsigned pass = 1;
+                for (int j = 0; j < steps; j++) S[j] = (tb + (uint64_t)j * STEP + loTerm[k]) & MASK48;
+                if (batch) {
+                    pass = 0;
+                    for (int j = 0; j < BATCH; j++)
+                        pass |= (unsigned)pass_div10(second_i(seed_mode, K, S[j], delta[0])) << j;
                 }
-                if (ok && check_all(ctx, ch, S)) {
-                    /* S = (W + ca) ^ K, so W = (S ^ K) - ca;  K = S ^ (W + ca), scrambler = K ^ MUL */
-                    const uint64_t result = ctx->mode == MODE_SEED
-                        ? ((S ^ ctx->K) - ca) & MASK48
-                        : (S ^ (ctx->worldSeed + ca) ^ MUL) & MASK48;
-                    #pragma omp critical
-                    {
-                        if (out->n < MAX_FOUND) out->v[out->n++] = result;
-                        matches++;
+                for (int j = 0; j < steps; j++) {
+                    if (!((pass >> j) & 1)) continue;
+                    int ok = 1;
+                    for (int b = batch ? 1 : 0; b < nf; b++)
+                        if (!pass_div10(second_i(seed_mode, K, S[j], delta[b]))) { ok = 0; break; }
+                    if (ok && check_all(ctx, ch, S[j])) {
+                        /* S = (W + ca) ^ K, so W = (S ^ K) - ca;  K = S ^ (W + ca), scrambler = K ^ MUL */
+                        const uint64_t result = seed_mode
+                            ? ((S[j] ^ K) - ca) & MASK48
+                            : (S[j] ^ (ctx->worldSeed + ca) ^ MUL) & MASK48;
+                        #pragma omp critical
+                        {
+                            if (out->n < MAX_FOUND) out->v[out->n++] = result;
+                            matches++;
+                        }
                     }
                 }
             }
-            tb = (tb + STEP) & MASK48;
+            tb = (tb + (uint64_t)steps * STEP) & MASK48;
+            t += steps - 1;
         }
         #pragma omp critical(progress)
         {

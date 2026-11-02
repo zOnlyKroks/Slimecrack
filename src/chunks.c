@@ -59,7 +59,7 @@ char *chunks_grid(const Chunks *ch, const int64_t limit, int64_t *x0, int64_t *z
     if (!any) { *x0 = *z0 = *w = *h = 0; return calloc(1, 1); }
     *w = x1 - *x0 + 1; *h = z1 - *z0 + 1;
     if (*w * *h > limit) return NULL;
-    char *listed = calloc((size_t)(*w * *h), 1);
+    char *listed = calloc(*w * *h, 1);
     for (int k = 0; k < ch->n; k++)
         if (!ch->v[k].fixed) listed[(ch->v[k].x - *x0) * *h + (ch->v[k].z - *z0)] = 1;
     return listed;

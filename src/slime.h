@@ -32,10 +32,14 @@ int is_slime(const Ctx *ctx, uint64_t W, uint64_t c);
 uint64_t inv48(uint64_t a);
 
 /* Division-free test of "i % 10 == 0" (or i in the rejected range), as the loop would accept it. */
-int pass_div10(uint32_t i);
+static int pass_div10(const uint32_t i) {
+    uint32_t r = i * 0xCCCCCCCDu;
+    r = (r >> 1) | (r << 31);
+    return (r <= 0x19999999u) | (i >= 2147483640u);
+}
 
 /* First state of a chunk, given the anchor chunk's first state S and the chunk's offset d from the anchor. */
-static uint64_t derive(const Ctx *ctx, const uint64_t S, const uint64_t d) {
+static inline uint64_t derive(const Ctx *ctx, const uint64_t S, const uint64_t d) {
     return ctx->mode == MODE_SEED ? ((S ^ ctx->K) + d & MASK48) ^ ctx->K : S ^ d;
 }
 

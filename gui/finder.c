@@ -61,13 +61,7 @@ static float g_scale = 1;   /* UI scale: everything is laid out in logical units
 /* Mouse position in logical (unscaled) units. */
 static Vector2 mouse_pos(void) {
     const Vector2 m = GetMousePosition();
-    return (Vector2){ m.x / g_scale, m.y / g_scale };
-}
-
-/* Mouse movement since the last frame in logical units. */
-static Vector2 mouse_delta(void) {
-    const Vector2 d = mouse_delta();
-    return (Vector2){ d.x / g_scale, d.y / g_scale };
+    return (Vector2){ .x = m.x / g_scale, .y = m.y / g_scale };
 }
 
 /* Window size in logical units. */
@@ -82,7 +76,7 @@ static void scissor_begin(const int x, const int y, const int w, const int h) {
 static void set_progress(const int pct) { g_pct = pct; }
 
 static void text(const char *s, const float x, const float y, const float size, const Color c) {
-    DrawTextEx(g_font, s, (Vector2){ x, y }, size, 0, c);
+    DrawTextEx(g_font, s, (Vector2){ .x = x, .y = y }, size, 0, c);
 }
 
 static float text_w(const char *s, const float size) {
@@ -371,7 +365,7 @@ static void sug_view(Crack *c, const int W) {
     snprintf(s, sizeof s, "%d chunks tell the %d candidates apart", c->nsug, ncand - c->sug_left);
     text(s, x, 74, 14, FG);
     text("check these chunks (slime or not) and add them to the csv as x,z,1 or x,z,0", x, 94, 13, DIM);
-    if (button((Rectangle){ (float)W - 120, 62, 96, 28 }, "close", 1, 0)) c->show_sug = 0;
+    if (button((Rectangle){ .x = (float)W - 120, .y = 62, .width = 96, .height = 28 }, "close", 1, 0)) c->show_sug = 0;
 
     const float visible = (float)(H - top - 10);
     const float total = (float)((c->nsug + (c->sug_left > 0)) * rowh);
@@ -422,7 +416,7 @@ static int crack_tab(Crack *c, const int W) {
         text("needs a dense block of chunks, both unknown", x, 108, 13, DIM);
     } else {
         text(c->mode == MODE_SALT ? "world seed" : "scrambler", x, 108, 13, DIM);
-        field(c->mode == MODE_SALT ? &c->world : &c->scr, (Rectangle){ x, 126, 280, 30 });
+        field(c->mode == MODE_SALT ? &c->world : &c->scr, (Rectangle){ .x = x, .y = 126, .width = 280, .height = 30 });
     }
 
     char info[128];
@@ -437,11 +431,11 @@ static int crack_tab(Crack *c, const int W) {
         text(c->file[0] ? "no chunks found in file" : "or drop a file here", x + 104, 175, 14, DIM);
     }
 
-    if (button((Rectangle){ x, 216, 92, 32 }, running ? "running" : "start", !running && c->nslime > 0, 0)) crack_start(c);
+    if (button((Rectangle){ .x = x, .y = 216, .width = 92, .height = 32 }, running ? "running" : "start", !running && c->nslime > 0, 0)) crack_start(c);
     const int has = c->state == DONE && c->res.n > 0;
-    if (button((Rectangle){ x + 96, 216, 92, 32 }, "list", has, 0)) { c->show_list = 1; c->list_scroll = 0; }
-    if (button((Rectangle){ x + 288, 216, 92, 32 }, "next chunks", c->state == DONE && c->nsug > 0, 0)) { c->show_sug = 1; c->list_scroll = 0; }
-    if (button((Rectangle){ x + 192, 216, 92, 32 }, "export", has, 0)) {
+    if (button((Rectangle){ .x = x + 96, .y = 216, .width = 92, .height = 32 }, "list", has, 0)) { c->show_list = 1; c->list_scroll = 0; }
+    if (button((Rectangle){ .x = x + 288, .y = 216, .width = 92, .height = 32 }, "next chunks", c->state == DONE && c->nsug > 0, 0)) { c->show_sug = 1; c->list_scroll = 0; }
+    if (button((Rectangle){ .x = x + 192, .y = 216, .width = 92, .height = 32 }, "export", has, 0)) {
         char path[1024];
         if (save_file(path, sizeof path))
             snprintf(c->note, sizeof c->note, export_results(c, path) ? "saved %s" : "could not write %s", GetFileName(path));
@@ -505,7 +499,7 @@ static void rebuild(Texture2D *tex, Image *img, const Ctx *ctx, const uint64_t s
         SetTextureFilter(*tex, TEXTURE_FILTER_POINT);
     }
     Color *px = img->data;
-    const Color rock = { 40, 40, 45, 255 };
+    const Color rock = { .r = 40, .g = 40, .b = 45, .a = 255 };
     for (int j = 0; j < h; j++)
         for (int i = 0; i < w; i++)
             px[j * w + i] = is_slime(ctx, seed, offs(x0 + i, z0 + j)) ? ACCENT : rock;
@@ -524,7 +518,7 @@ int gui_main(void) {
 
     Crack crack_s = { .ch = chunks_new(), .scr = { "987234911" }, .world = { "0" } };
     Field map_seed = { "0" }, map_scr = { "987234911" }, go_x = { "" }, go_z = { "" };
-    View v = { 0.5, 0.5, 12 };
+    View v = { .cx = 0.5, .cz = 0.5, .scale = 12 };
     Texture2D tex = { 0 };
     Image img = { 0 };
     int tab = 0, dirty = 1, dragging = 0, tw = 0, th = 0;
@@ -581,7 +575,7 @@ int gui_main(void) {
             }
         } else {
             const double mapH = H - MAP_TOP - FOOT_H;
-            const Rectangle maprect = { 0, MAP_TOP, (float)W, (float)mapH };
+            const Rectangle maprect = { .x = 0, .y = MAP_TOP, .width = (float)W, .height = (float)mapH };
 
             text("seed", 24, TAB_H + 14, 13, DIM);
             field(&map_seed, (Rectangle){ 62, TAB_H + 8, 220, 30 });
@@ -637,7 +631,7 @@ int gui_main(void) {
                 const Color line = step == 1 ? (Color){ 0, 0, 0, 60 } : (Color){ 255, 255, 255, 36 };
                 for (int64_t x = (x0 / step) * step; x <= x0 + w; x += step) {
                     const float sx = (float)((x - left) * v.scale);
-                    DrawLineV((Vector2){ sx, MAP_TOP }, (Vector2){ sx, (float)H }, line);
+                    DrawLineV((Vector2){ .x = sx, .y = MAP_TOP}, (Vector2){ sx, (float)H }, line);
                 }
                 for (int64_t z = (z0 / step) * step; z <= z0 + h; z += step) {
                     const float sy = (float)(MAP_TOP + (z - top) * v.scale);
@@ -664,7 +658,7 @@ int gui_main(void) {
         float tx = 24;
         for (int k = 0; k < 2; k++) {
             const float tw_ = text_w(names[k], 17);
-            const Rectangle r = { tx - 8, 0, tw_ + 16, TAB_H };
+            const Rectangle r = { .x = tx - 8, .y = 0, .width = tw_ + 16, .height = TAB_H};
             if (clicked(r)) tab = k;
             text(names[k], tx, 12, 17, tab == k ? FG : DIM);
             if (tab == k) DrawRectangle((int)tx, TAB_H - 3, (int)tw_, 2, ACCENT);

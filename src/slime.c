@@ -32,10 +32,3 @@ uint64_t inv48(const uint64_t a) {
     for (int i = 0; i < 6; i++) x = (x * (2 - a * x)) & MASK48;
     return x;
 }
-
-/* Division-free test of "i % 10 == 0" (or i in the rejected range), as the loop would accept it. */
-int pass_div10(const uint32_t i) {
-    uint32_t r = i * 0xCCCCCCCDu;
-    r = (r >> 1) | (r << 31);
-    return (r <= 0x19999999u) | (i >= 2147483640u);
-}

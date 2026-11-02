@@ -23,3 +23,8 @@ not slime. More chunks means fewer candidate results.
 ## Output
 Only the low 48 bits of the seed matter for slime chunks. If several candidates remain, the tool
 lists them and suggests chunks to look at to tell them apart.
+
+## How it works
+`seed` / `salt` lift the unknown value bit by bit when the slime chunks contain close pairs
+(docs/approach-lift.md) and otherwise enumerate all anchor states (docs/approach.md, `--anchor`).
+`both` is described in docs/approach-both.md.
